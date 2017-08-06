@@ -26,21 +26,32 @@ function dstart($argv) {
     echo "\r\n";
     commands();
   }
-  foreach ($arguments as $arg) {
+  foreach ($arguments as $key => $arg) {
     switch ($arg) {
       case "--version":
       case "-v":
         version();
-        break;
+        break 2;
+
+      case "--list":
+      case "-ls":
+        envlist();
+        break 2;
 
       case "create":
+        $output = shell_exec('docker ps -a');
+        echo $output;
         echo "creating....";
         echo "\r\n";
-        break;
+        break 2;
+
+      case "start":
+        start($arguments, $key);
+        break 2;
 
       default:
         invalid();
-        break;
+        break 2;
     }
   }
 }
@@ -91,6 +102,9 @@ function options() {
   echo $colors->getColoredString("  --version, -v", "green");
   echo "        Prints release details of the DStart that you are using.";
   echo "\r\n";
+  echo $colors->getColoredString("  --list, -ls", "green");
+  echo "          Displays all containers available to DStart.";
+  echo "\r\n";
 
 }
 
@@ -128,6 +142,51 @@ function invalid() {
   echo " for to see what's available.";
   echo "\r\n";
 
+}
+
+// Start an existing docker container.
+function start($arguments, $key) {
+  $colors = new Colors();
+  $existing_containers_str = shell_exec("docker ps -a --format '{{.Names}}'");
+  $existing_containers = explode("\n", $existing_containers_str);
+  $container = $arguments[$key+1];
+  if (in_array($container, $existing_containers)) {
+    $output = shell_exec("docker start $container");
+    echo $output;
+  }
+  else {
+    echo $colors->getColoredString("DStart could not find an existing container called $container.", "white", "red");
+    echo "\r\n";
+    echo "Please check that you have spelled your container name correctly. To see all containers use: ";
+    echo $colors->getColoredString("dstart -ls", "green");
+    echo "\r\n";
+    echo "If you have not created the environment yet, you can do so with the following command: ";
+    echo $colors->getColoredString("dstart create $container", "green");
+    echo "\r\n";
+  }
+}
+
+// Start an existing docker container.
+function envlist() {
+  $colors = new Colors();
+  $containers = shell_exec("docker ps -a --format '{{.Names}}  {{.Ports}}'");
+  $containers = explode("\n", $containers);
+  $running_containers = shell_exec("docker ps --format '{{.Names}}  {{.Ports}}'");
+  $running_containers = explode("\n", $running_containers);
+  foreach ($containers as $container) {
+    if (in_array($container,$running_containers)) {
+      $container_details = explode("  ", $container);
+      $container_name = isset($container_details[0]) ? $container_details[0] : null;
+      $container_ip = isset($container_details[1]) ? $container_details[1] : null;
+      echo $colors->getColoredString("$container_name ", "green");
+      echo $colors->getColoredString("$container_ip", "yellow");
+      echo "\r\n";
+    }
+    else if (strlen($container) > 0) {
+      echo $colors->getColoredString("$container", "red");
+      echo "\r\n";
+    }
+  }
 }
 
 // Allows use of font and background colors.
